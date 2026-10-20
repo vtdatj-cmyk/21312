@@ -1,0 +1,365 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+
+local config = {
+    TextEnabled = true,
+    SelectedNotif = "GhostBossNotif",
+    SelectedSound = "Blackhole Spawn"
+}
+
+-- Tìm hoặc tạo một RemoteEvent chung để đồng bộ giữa các executor (nếu game cho phép ReplicatedStorage nhận replication từ client)
+local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage:FindFirstChild("Events")
+local syncEvent = nil
+
+pcall(function()
+    if not remotesFolder then
+        remotesFolder = Instance.new("Folder")
+        remotesFolder.Name = "ExecutorSyncFolder"
+        remotesFolder.Parent = ReplicatedStorage
+    end
+    syncEvent = remotesFolder:FindFirstChild("AdvancedNotifSync")
+    if not syncEvent then
+        syncEvent = Instance.new("RemoteEvent")
+        syncEvent.Name = "AdvancedNotifSync"
+        syncEvent.Parent = remotesFolder
+    end
+end)
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AdvancedNotifController"
+screenGui.ResetOnSpawn = false
+pcall(function() screenGui.Parent = CoreGui end)
+if not screenGui.Parent then screenGui.Parent = playerGui end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 340, 0, 480)
+mainFrame.Position = UDim2.new(0.5, -170, 0.5, -240)
+mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 10)
+mainCorner.Parent = mainFrame
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 35)
+titleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextSize = 15
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Text = "Cấu Hình Thông Báo Nâng Cao (Sync)"
+titleLabel.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 10)
+titleCorner.Parent = titleLabel
+
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, -20, 1, -95)
+scrollFrame.Position = UDim2.new(0, 10, 0, 45)
+scrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.Parent = mainFrame
+
+local scrollCorner = Instance.new("UICorner")
+scrollCorner.CornerRadius = UDim.new(0, 8)
+scrollCorner.Parent = scrollFrame
+
+local uiList = Instance.new("UIListLayout")
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+uiList.Padding = UDim.new(0, 10)
+uiList.Parent = scrollFrame
+
+uiList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, uiList.AbsoluteContentSize.Y + 15)
+end)
+
+local function createSectionTitle(text)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 20)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.fromRGB(0, 170, 255)
+    lbl.TextSize = 13
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Text = "   " .. text
+    lbl.Parent = scrollFrame
+    return lbl
+end
+
+createSectionTitle("1. Nội dung văn bản")
+
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(1, -10, 0, 35)
+textBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+textBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+textBox.TextSize = 14
+textBox.Font = Enum.Font.SourceSans
+textBox.PlaceholderText = "Nhập chữ ở đây..."
+textBox.Text = "Script by VTdz"
+textBox.ClearTextOnFocus = false
+textBox.Parent = scrollFrame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 6)
+boxCorner.Parent = textBox
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(1, -10, 0, 32)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.Text = "Hiển thị Text: BẬT"
+toggleBtn.Parent = scrollFrame
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+toggleBtn.MouseButton1Click:Connect(function()
+    config.TextEnabled = not config.TextEnabled
+    if config.TextEnabled then
+        toggleBtn.Text = "Hiển thị Text: BẬT"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+    else
+        toggleBtn.Text = "Hiển thị Text: TẮT"
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+    end
+end)
+
+createSectionTitle("2. Chọn Skin Thông Báo (Notif)")
+
+local notifSkins = {
+    "GhostBossNotif", "GoldenNotif",
+    "MsgNotif", "RiftNotif", "SammyNotif",
+}
+
+local skinContainer = Instance.new("Frame")
+skinContainer.Size = UDim2.new(1, -10, 0, 110)
+skinContainer.BackgroundTransparency = 1
+skinContainer.Parent = scrollFrame
+
+local skinGrid = Instance.new("UIGridLayout")
+skinGrid.CellSize = UDim2.new(0.48, 0, 0, 30)
+skinGrid.CellPadding = UDim2.new(0.04, 0, 0, 5)
+skinGrid.Parent = skinContainer
+
+local skinButtons = {}
+
+for _, skinName in ipairs(notifSkins) do
+    local btn = Instance.new("TextButton")
+    btn.Text = skinName
+    btn.TextSize = 12
+    btn.Font = Enum.Font.SourceSans
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.BackgroundColor3 = (skinName == config.SelectedNotif) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
+    btn.Parent = skinContainer
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    
+    skinButtons[skinName] = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        config.SelectedNotif = skinName
+        for name, button in pairs(skinButtons) do
+            button.BackgroundColor3 = (name == skinName) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
+        end
+    end)
+end
+
+createSectionTitle("3. Chọn Âm Thanh (Sound)")
+
+local soundsList = {
+    "Blackhole Spawn", "Boss Spawn", "Boss Death SFX", 
+    "Boss Phase 2 SFX", "Boss Slam SFX", "Boss SlamStart SFX", 
+    "Crystal Break SFX", "Meteor Impact SFX", "Bat Hit Arm SFX", "Black Hole Loop Sound"
+}
+
+local soundContainer = Instance.new("Frame")
+soundContainer.Size = UDim2.new(1, -10, 0, 150)
+soundContainer.BackgroundTransparency = 1
+soundContainer.Parent = scrollFrame
+
+local soundGrid = Instance.new("UIGridLayout")
+soundGrid.CellSize = UDim2.new(0.48, 0, 0, 30)
+soundGrid.CellPadding = UDim2.new(0.04, 0, 0, 5)
+soundGrid.Parent = soundContainer
+
+local soundButtons = {}
+
+for _, soundName in ipairs(soundsList) do
+    local btn = Instance.new("TextButton")
+    btn.Text = soundName
+    btn.TextSize = 11
+    btn.Font = Enum.Font.SourceSans
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.BackgroundColor3 = (soundName == config.SelectedSound) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
+    btn.Parent = soundContainer
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = btn
+    
+    soundButtons[soundName] = btn
+    
+    btn.MouseButton1Click:Connect(function()
+        config.SelectedSound = soundName
+        for name, button in pairs(soundButtons) do
+            button.BackgroundColor3 = (name == soundName) and Color3.fromRGB(0, 120, 215) or Color3.fromRGB(50, 50, 50)
+        end
+    end)
+end
+
+local sendBtn = Instance.new("TextButton")
+sendBtn.Size = UDim2.new(1, -20, 0, 38)
+sendBtn.Position = UDim2.new(0, 10, 1, -45)
+sendBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 230)
+sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sendBtn.TextSize = 15
+sendBtn.Font = Enum.Font.SourceSansBold
+sendBtn.Text = "KÍCH HOẠT THÔNG BÁO CHUNG"
+sendBtn.Parent = mainFrame
+
+local sendCorner = Instance.new("UICorner")
+sendCorner.CornerRadius = UDim.new(0, 8)
+sendCorner.Parent = sendBtn
+
+local function playAnnounceSound(soundName)
+    pcall(function()
+        local Assets = ReplicatedStorage:FindFirstChild("Assets")
+        local Sounds = Assets and Assets:FindFirstChild("Sounds")
+        local BossEventSounds = Sounds and Sounds:FindFirstChild("BossEventSounds")
+        local soundObj = BossEventSounds and BossEventSounds:FindFirstChild(soundName)
+        
+        if soundObj and soundObj:IsA("Sound") then
+            local soundClone = soundObj:Clone()
+            soundClone.Volume = 0.7
+            soundClone.PlaybackSpeed = 1.15
+            soundClone.Parent = SoundService
+            
+            local played = false
+            local Audio = nil
+            pcall(function()
+                Audio = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Audio"))
+            end)
+
+            if Audio and type(Audio.Play) == "function" then
+                local ok = pcall(function()
+                    Audio.Play(soundClone, SoundService, { Volume = 0.7, PlaybackSpeed = 1.15 })
+                end)
+                if ok then played = true end
+            end
+            
+            if not played then soundClone:Play() end
+            
+            task.delay(soundClone.TimeLength > 0 and soundClone.TimeLength or 3, function()
+                if soundClone and soundClone.Parent then soundClone:Destroy() end
+            end)
+        end
+    end)
+end
+
+-- Hàm thực thi việc hiển thị thông báo thực tế cho người chơi nhận được
+local function showNotificationForPlayer(senderPlayer, customText, selectedNotif, selectedSound)
+    local DISPLAY_SECONDS = 3 
+
+    local success, err = pcall(function()
+        local Lanes = require(ReplicatedStorage:WaitForChild("Client"):WaitForChild("Notifications"):WaitForChild("Lanes"))
+        local notifsFolder = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("UI"):WaitForChild("Notifs")
+        local templateNotif = notifsFolder:WaitForChild(selectedNotif)
+
+        local clonedFrame = templateNotif:Clone()
+
+        local avatarUrl = ""
+        pcall(function()
+            avatarUrl = Players:GetUserThumbnailAsync(
+                senderPlayer.UserId, 
+                Enum.ThumbnailType.HeadShot, 
+                Enum.ThumbnailSize.Size420x420
+            )
+        end)
+
+        for _, obj in ipairs(clonedFrame:GetDescendants()) do
+            if obj:IsA("TextLabel") then
+                if config.TextEnabled then
+                    if obj.Name == "Body" or obj.Name == "Title" or obj.Text ~= "" then
+                        obj.Text = customText
+                        obj.Visible = true
+                        obj.TextTransparency = 0
+                    end
+                else
+                    obj.Text = ""
+                    obj.Visible = false
+                    obj.TextTransparency = 1
+                end
+            end
+        end
+
+        local plate = clonedFrame:FindFirstChild("Plate") or clonedFrame:FindFirstChild("CorruptedPlate")
+        if plate then
+            local iconObj = plate:FindFirstChild("Icon")
+            if iconObj then
+                iconObj.Visible = true
+                if iconObj:IsA("ImageLabel") or iconObj:IsA("ImageButton") then
+                    iconObj.Image = avatarUrl
+                end
+                for _, childImg in ipairs(iconObj:GetDescendants()) do
+                    if childImg:IsA("ImageLabel") or childImg:IsA("ImageButton") then
+                        childImg.Image = avatarUrl
+                        childImg.Visible = true
+                    end
+                end
+            end
+        end
+
+        Lanes.Schedule({
+            Lane = "Banner",
+            Seconds = DISPLAY_SECONDS,
+            UniqueKey = selectedNotif .. "_" .. tick(),
+            Frame = clonedFrame,
+            OnShown = function()
+                playAnnounceSound(selectedSound)
+            end
+        })
+    end)
+
+    if not success then
+        warn("Lỗi khi hiển thị thông báo:", err)
+    end
+end
+
+-- Lắng nghe tín hiệu từ những người chơi khác gửi tới
+if syncEvent then
+    syncEvent.OnClientEvent:Connect(function(sender, text, notifSkin, soundName)
+        if sender and sender ~= localPlayer then
+            showNotificationForPlayer(sender, text, notifSkin, soundName)
+        end
+    end)
+end
+
+-- Khi bấm nút, vừa hiện cho bản thân vừa phát tín hiệu đồng bộ qua mạng cho mọi người cùng thấy
+sendBtn.MouseButton1Click:Connect(function()
+    -- Hiển thị cho chính mình
+    showNotificationForPlayer(localPlayer, textBox.Text, config.SelectedNotif, config.SelectedSound)
+    
+    -- Gửi tín hiệu đến tất cả người chơi khác (nếu game hỗ trợ Server-Client replication cho RemoteEvent mới tạo)
+    pcall(function()
+        if syncEvent then
+            syncEvent:FireServer(textBox.Text, config.SelectedNotif, config.SelectedSound)
+        end
+    end)
+end)
+
+-- (Tùy chọn) Xử lý phía Server ảo hóa nếu executor có hỗ trợ lệnh Server (như Inf Yield / ScriptWare / Synapse cũ có hàm hook server) hoặc nếu game có sẵn Remote cho phép Client gọi lại cho các Client khác.
